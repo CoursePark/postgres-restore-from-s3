@@ -37,7 +37,12 @@ if [ -n "$object" ]; then
   export dbname=`echo $DATABASE_URL | sed "s|.*/\([^/]*\)\$|\\1|"`
   echo "DROP DATABASE $dbname; CREATE DATABASE $dbname;" | psql `echo $DATABASE_URL | sed "s|/[^/]*\$|/template1|"`
   echo "postgres restore from s3 - filling target database with dump"
-  pg_restore --no-owner -d $DATABASE_URL $tempFile
+  if [ -n "$SCHEMA" ]; then
+    echo "postgres restore from s3 - schema - $SCHEMA"
+    pg_restore --schema $SCHEMA --no-owner -d $DATABASE_URL $tempFile
+  else
+    pg_restore --no-owner -d $DATABASE_URL $tempFile
+  fi
   rm $tempFile
   echo "postgres restore from s3 - complete - $object"
 else

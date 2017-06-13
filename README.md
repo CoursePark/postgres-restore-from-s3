@@ -52,6 +52,12 @@ If a specific dump is wanted from S3, `DUMP_OBJECT` can be used instead of `DUMP
 	-e DUMP_OBJECT=_____ \ # path/object
 ```
 
+To limit the restore to a particular schema, the `SCHEMA` environment variable can be passed. Not the entire database will be dropped in the restore process so this will not preserve other schemas.
+
+```
+    -e SCHEMA=_____ \ # public or other
+```
+
 ***Note**: the usual cron tricks apply to the hour and minute env values. For instance setting `CRON_HOUR` to `*/4` and `CRON_MINUTE` to `0`, will trigger once every 4 hours.*
 
 Creating database dumps can be accomplished with the `bluedrop360/postgres-dump-to-s3` repo.
