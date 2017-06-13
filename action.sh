@@ -15,8 +15,9 @@ else
   while true; do
     objectSet=$(aws --region ${AWS_REGION} s3 ls s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}${filter} | sed "s/.* ${dumpPattern}/\1/" | grep "^${dumpPattern}")
     afterDateFilter=${dateFilter}_ # appends a '_' char to ensure ordering after .dump file in the sort
-    object=$(echo -e "$objectSet\n$afterDateFilter" | sort | sed "/$afterDateFilter/q" | sed '/^$/d' | tail -n 2 | head -n 1)
-    if [ "$object" != "$afterDateFilter" ]; then
+    dumpFile=$(echo -e "$objectSet\n$afterDateFilter" | sort | sed "/$afterDateFilter/q" | sed '/^$/d' | tail -n 2 | head -n 1)
+    if [ "$dumpFile" != "$afterDateFilter" ]; then
+      object=${DUMP_OBJECT_PREFIX}$dumpFile
       # found an object, success
       break;
     fi
@@ -31,7 +32,7 @@ fi
 if [ -n "$object" ]; then
   tempFile=$(mktemp -u)
   echo "postgres restore from s3 - downloading dump from s3 - $object"
-  aws --region ${AWS_REGION} s3 cp s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}$object $tempFile
+  aws --region ${AWS_REGION} s3 cp s3://${AWS_BUCKET}/$object $tempFile
   echo "postgres restore from s3 - dropping old database"
   export dbname=`echo $DATABASE_URL | sed "s|.*/\([^/]*\)\$|\\1|"`
   echo "DROP DATABASE $dbname; CREATE DATABASE $dbname;" | psql `echo $DATABASE_URL | sed "s|/[^/]*\$|/template1|"`
