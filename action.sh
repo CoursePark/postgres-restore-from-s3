@@ -4,8 +4,8 @@ echo "postgres restore from s3 - finding dump on s3 - s3://${AWS_BUCKET}/${DUMP_
 if [ -n "${DUMP_OBJECT}" ]; then
   object=${DUMP_OBJECT}
 else
-  if [ -n "${DUMP_OBJECT_BEFORE}" ]; then
-    dateFilter=${DUMP_OBJECT_BEFORE}
+  if [ -n "${DUMP_OBJECT_DATE}" ]; then
+    dateFilter=${DUMP_OBJECT_DATE}
   else
     dateFilter=$(date +"%Y-%m-%dT%H:%M")
   fi
@@ -35,8 +35,8 @@ if [ -n "$object" ]; then
   echo "postgres restore from s3 - dropping old database"
   export dbname=`echo $DATABASE_URL | sed "s|.*/\([^/]*\)\$|\\1|"`
   echo "DROP DATABASE $dbname; CREATE DATABASE $dbname;" | psql `echo $DATABASE_URL | sed "s|/[^/]*\$|/template1|"`
-  echo "postgres restore from s3 - fill target database with dump"
-  pg_restore -c -d $DATABASE_URL $tempFile
+  echo "postgres restore from s3 - filling target database with dump"
+  pg_restore --no-owner -d $DATABASE_URL $tempFile
   rm $tempFile
   echo "postgres restore from s3 - complete - $object"
 else
