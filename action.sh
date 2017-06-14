@@ -38,19 +38,20 @@ if [ -n "$object" ]; then
     aws --region ${AWS_REGION} s3 cp s3://${AWS_BUCKET}/$object /cache/$dumpFile
   fi
   echo "postgres restore from s3 - dropping old database"
-  export dbname=$(echo $DATABASE_URL | sed "s|.*/\([^/]*\)\$|\\1|")
+  dbName=$(echo $DATABASE_URL | sed "s|.*/\([^/]*\)\$|\\1|")
   dbRootUrl=$(echo $DATABASE_URL | sed "s|/[^/]*\$|/template1|")
-  drop=$(echo "DROP DATABASE $dbname;" | psql $dbRootUrl 2>&1)
-  echo "drop --- " $drop
-  create=$(echo "CREATE DATABASE $dbname;" | psql $dbRootUrl 2>&1)
-  echo "create --- " $create
+  dropResult=$(echo "DROP DATABASE $dbName;" | psql $dbRootUrl 2>&1)
+  if echo $dropResult | grep "other session using the database" -> /dev/null; then
+    echo "RESTORE FAILED - another database session is preventing drop of database $dbName"
+    exit 1
+  fi
+  createResult=$(echo "CREATE DATABASE $dbName;" | psql $dbRootUrl 2>&1)
   echo "postgres restore from s3 - filling target database with dump"
   if [ -n "$SCHEMA" ]; then
     echo "postgres restore from s3 - schema - $SCHEMA"
-    # pg_restore --schema $SCHEMA --no-owner -d $DATABASE_URL /cache/$dumpFile
+    pg_restore --schema $SCHEMA --no-owner -d $DATABASE_URL /cache/$dumpFile
   else
-    echo ""
-    # pg_restore --no-owner -d $DATABASE_URL /cache/$dumpFile
+    pg_restore --no-owner -d $DATABASE_URL /cache/$dumpFile
   fi
   echo "postgres restore from s3 - complete - $object"
 else
