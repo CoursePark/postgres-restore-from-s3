@@ -58,7 +58,7 @@ If a specific dump is wanted from S3, `DUMP_OBJECT` can be used instead of `DUMP
 	-e DUMP_OBJECT=_____ \ # path/object
 ```
 
-To limit the restore to a particular schema, the `SCHEMA` environment variable can be passed. Not the entire database will be dropped in the restore process so this will not preserve other schemas.
+To limit the restore to a particular schema, the `SCHEMA` environment variable can be passed. _Note_ that the entire database will be dropped in the restore process. This will not preserve other schemas.
 
 ```
     -e SCHEMA=_____ \ # public or other
