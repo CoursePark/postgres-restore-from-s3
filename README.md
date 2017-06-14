@@ -40,10 +40,16 @@ docker run --rm \
 	bluedrop360/postgres-restore-from-s3 ./action.sh
 ```
 
-Optionally a date can be specified with the `DUMP_OBJECT_DATE` environment variable to get an image at that date or if not found, the most recent before it.
+A date can be specified with the `DUMP_OBJECT_DATE` environment variable to get an image at that date or if not found, the most recent before it.
 
 ```
 	-e DUMP_OBJECT_DATE=_____ \ # YYYY-MM-DDThh:mm , times in UTC
+```
+
+To avoid redownloading the same database dump when restoring multiple times, use a docker volume mapped the container's /cache directory. Mapping to `$(pwd)/dump` will create a `dump` directory in the current directory. Downloaded dump files will go in that and will be named according to the _file name_ of the S3 object as opposed to the _path and file name_. Because new .dump files may be continuously avaialble for download, it is recommended to use `DUMP_OBJECT_DATE` with the `DUMP_OBJECT_PREFIX` environment variable to specify a particular dump.
+
+```
+	-v $(pwd)/dump:/cache
 ```
 
 If a specific dump is wanted from S3, `DUMP_OBJECT` can be used instead of `DUMP_OBJECT_PREFIX` and `DUMP_OBJECT_DATE`, to specify the full object path on S3 of a desired dump.

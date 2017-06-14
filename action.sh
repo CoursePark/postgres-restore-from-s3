@@ -3,6 +3,7 @@
 echo "postgres restore from s3 - finding dump on s3 - s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}"
 if [ -n "${DUMP_OBJECT}" ]; then
   object=${DUMP_OBJECT}
+  dumpFile=$(echo ${DUMP_OBJECT} | sed 's/.*\///')
 else
   if [ -n "${DUMP_OBJECT_DATE}" ]; then
     dateFilter=${DUMP_OBJECT_DATE}
@@ -30,20 +31,27 @@ else
   done
 fi
 if [ -n "$object" ]; then
-  tempFile=$(mktemp -u)
-  echo "postgres restore from s3 - downloading dump from s3 - $object"
-  aws --region ${AWS_REGION} s3 cp s3://${AWS_BUCKET}/$object $tempFile
+  if [ -f "/cache/$dumpFile" ]; then
+    echo "postgres restore from s3 - using cached $dumpFile"
+  else
+    echo "postgres restore from s3 - downloading dump from s3 - $object"
+    aws --region ${AWS_REGION} s3 cp s3://${AWS_BUCKET}/$object /cache/$dumpFile
+  fi
   echo "postgres restore from s3 - dropping old database"
-  export dbname=`echo $DATABASE_URL | sed "s|.*/\([^/]*\)\$|\\1|"`
-  echo "DROP DATABASE $dbname; CREATE DATABASE $dbname;" | psql `echo $DATABASE_URL | sed "s|/[^/]*\$|/template1|"`
+  export dbname=$(echo $DATABASE_URL | sed "s|.*/\([^/]*\)\$|\\1|")
+  dbRootUrl=$(echo $DATABASE_URL | sed "s|/[^/]*\$|/template1|")
+  drop=$(echo "DROP DATABASE $dbname;" | psql $dbRootUrl 2>&1)
+  echo "drop --- " $drop
+  create=$(echo "CREATE DATABASE $dbname;" | psql $dbRootUrl 2>&1)
+  echo "create --- " $create
   echo "postgres restore from s3 - filling target database with dump"
   if [ -n "$SCHEMA" ]; then
     echo "postgres restore from s3 - schema - $SCHEMA"
-    pg_restore --schema $SCHEMA --no-owner -d $DATABASE_URL $tempFile
+    # pg_restore --schema $SCHEMA --no-owner -d $DATABASE_URL /cache/$dumpFile
   else
-    pg_restore --no-owner -d $DATABASE_URL $tempFile
+    echo ""
+    # pg_restore --no-owner -d $DATABASE_URL /cache/$dumpFile
   fi
-  rm $tempFile
   echo "postgres restore from s3 - complete - $object"
 else
   echo "postgres restore from s3 - dump file not found on s3"

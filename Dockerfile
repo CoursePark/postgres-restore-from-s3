@@ -9,6 +9,7 @@ RUN apk --no-cache add python py-pip && \
 	apk --purge -v del py-pip
 
 COPY action.sh /
+RUN mkdir -p /cache
 
 RUN chmod +x action.sh
 
