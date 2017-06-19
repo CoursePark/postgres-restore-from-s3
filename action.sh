@@ -14,6 +14,12 @@ else
   filter=$dateFilter
   dumpPattern="\([0-9:T\-]\+\.dump\)"
   while true; do
+    if [ -f "/cache/$filter.dump" ]; then
+      # file exists in the cache, stop looking remotely
+      object=$filter
+      dumpFile=$filter.dump
+      break;
+    fi
     objectSet=$(aws --region ${AWS_REGION} s3 ls s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}${filter} | sed "s/.* ${dumpPattern}/\1/" | grep "^${dumpPattern}")
     afterDateFilter=${dateFilter}_ # appends a '_' char to ensure ordering after .dump file in the sort
     dumpFile=$(echo -e "$objectSet\n$afterDateFilter" | sort | sed "/$afterDateFilter/q" | sed '/^$/d' | tail -n 2 | head -n 1)
