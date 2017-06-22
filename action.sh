@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "postgres restore from s3 - finding dump on s3 - s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}"
+echo "postgres restore from s3 - looking for dump in cache and on s3 at s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}"
 if [ -n "${DUMP_OBJECT}" ]; then
   object=${DUMP_OBJECT}
   dumpFile=$(echo ${DUMP_OBJECT} | sed 's/.*\///')
@@ -14,6 +14,7 @@ else
   filter=$dateFilter
   dumpPattern="\([0-9:T\-]\+\.dump\)"
   while true; do
+    echo "postgres restore from s3 - using filter $filter"
     if [ -f "/cache/$filter.dump" ]; then
       # file exists in the cache, stop looking remotely
       object=$filter
