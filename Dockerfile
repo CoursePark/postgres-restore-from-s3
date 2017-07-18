@@ -10,7 +10,7 @@ RUN apk --no-cache add python py-pip && \
 
 # postgresql for pg_restore
 RUN echo "http://dl-cdn.alpinelinux.org/alpine/${pg_alpine_branch}/main" >> /etc/apk/repositories
-RUN apk --no-cache add postgresql-client=${pg_version}
+RUN apk --no-cache add postgresql=${pg_version}
 
 COPY action.sh /
 RUN chmod +x action.sh
