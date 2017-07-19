@@ -54,11 +54,19 @@ if [ -n "$object" ]; then
   fi
   createResult=$(echo "CREATE DATABASE $dbName;" | psql $dbRootUrl 2>&1)
   echo "postgres restore from s3 - filling target database with dump"
+  if [ -n "$PRE_RESTORE_PSQL" ]; then
+    echo "postgres restore from s3 - executing pre restore psql"
+    printf %s "$PRE_RESTORE_PSQL" | psql $DATABASE_URL
+  fi
   if [ -n "$SCHEMA" ]; then
     echo "postgres restore from s3 - schema - $SCHEMA"
     pg_restore --schema $SCHEMA --no-owner -d $DATABASE_URL /cache/$dumpFile
   else
     pg_restore --no-owner -d $DATABASE_URL /cache/$dumpFile
+  fi
+  if [ -n "$POST_RESTORE_PSQL" ]; then
+    echo "postgres restore from s3 - executing post restore psql"
+    printf %s "$POST_RESTORE_PSQL" | psql $DATABASE_URL
   fi
   echo "postgres restore from s3 - complete - $object"
 else

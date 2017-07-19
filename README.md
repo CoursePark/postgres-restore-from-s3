@@ -64,6 +64,12 @@ To limit the restore to a particular schema, the `SCHEMA` environment variable c
     -e SCHEMA=_____ \ # public or other
 ```
 
+To execute arbitrary psql / SQL commands before or after the internal _pg_restore_ command, the `PRE_RESTORE_PSQL` and `POST_RESTORE_PSQL` environment variables can be passed. `PRE_RESTORE_PSQL` can is particularly useful for `CREATE EXTENSION ___;` when also specifying a `SCHEMA` as _pg_restore_ doesn't execute such database level commands when targeted to a particular schema or table.
+
+```
+    -e PRE_RESTORE_PSQL="____" \ # "CREATE EXTENSION postgis; CREATE EXTENSION pg_trgm;"
+```
+
 ***Note**: the usual cron tricks apply to the hour and minute env values. For instance setting `CRON_HOUR` to `*/4` and `CRON_MINUTE` to `0`, will trigger once every 4 hours.*
 
 Creating database dumps can be accomplished with the `bluedrop360/postgres-dump-to-s3` repo.
