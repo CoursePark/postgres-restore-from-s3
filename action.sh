@@ -47,7 +47,8 @@ if [ -n "$object" ]; then
   echo "postgres restore from s3 - dropping old database"
   dbName=$(echo $DATABASE_URL | sed "s|.*/\([^/]*\)\$|\\1|")
   dbRootUrl=$(echo $DATABASE_URL | sed "s|/[^/]*\$|/template1|")
-  dropResult=$(echo "DROP DATABASE $dbName;" | psql $dbRootUrl 2>&1)
+  dropResult=$(echo "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '$dbName'; \
+    DROP DATABASE $dbName;" | psql $dbRootUrl 2>&1)
   if echo $dropResult | grep "other session using the database" -> /dev/null; then
     echo "RESTORE FAILED - another database session is preventing drop of database $dbName"
     exit 1
