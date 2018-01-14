@@ -61,9 +61,9 @@ if [ -n "$object" ]; then
   fi
   if [ -n "$SCHEMA" ]; then
     echo "postgres restore from s3 - schema - $SCHEMA"
-    pg_restore --schema $SCHEMA --no-owner -d $DATABASE_URL /cache/$dumpFile
+    pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --schema $SCHEMA --no-owner -d $DATABASE_URL /cache/$dumpFile
   else
-    pg_restore --no-owner -d $DATABASE_URL /cache/$dumpFile
+    pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --no-owner -d $DATABASE_URL /cache/$dumpFile
   fi
   if [ -n "$POST_RESTORE_PSQL" ]; then
     echo "postgres restore from s3 - executing post restore psql"
