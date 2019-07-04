@@ -70,6 +70,22 @@ To execute arbitrary psql / SQL commands before or after the internal _pg_restor
     -e PRE_RESTORE_PSQL="____" \ # "CREATE EXTENSION postgis; CREATE EXTENSION pg_trgm;"
 ```
 
+### AWS multi-factor authentication
+
+If an AWS MFA code isn't passed to `action.sh` as an argument it will be requested.
+
+Authentication via AWS MFA can be enabled by setting the following environment variable.
+
+```
+-e AWS_MFA_DEVICE_ARN=<AWS_MFA_DEVICE_ARN>
+```
+
+In order for the temporary AWS MFA credentials to persist until they expire a volume must be mounted.
+
+```
+-v /tmp/.aws/:/root/.aws/
+```
+
 ***Note**: the usual cron tricks apply to the hour and minute env values. For instance setting `CRON_HOUR` to `*/4` and `CRON_MINUTE` to `0`, will trigger once every 4 hours.*
 
 Creating database dumps can be accomplished with the `bluedrop360/postgres-dump-to-s3` repo.

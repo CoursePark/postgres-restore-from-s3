@@ -1,72 +1,116 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
-echo "postgres restore from s3 - looking for dump in cache and on s3 at s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}"
-if [ -n "${DUMP_OBJECT}" ]; then
-  object=${DUMP_OBJECT}
-  dumpFile=$(echo ${DUMP_OBJECT} | sed 's/.*\///')
+################################################################
+# Variable definitions
+################################################################
+# shellcheck disable=SC2001
+DB_NAME=$(echo "${DATABASE_URL}" | sed "s|.*/\([^/]*\)\$|\\1|")
+
+# shellcheck disable=SC2001
+DB_ROOT_URL=$(echo "${DATABASE_URL}" | sed "s|/[^/]*\$|/template1|")
+
+DROP_RESULT=$(echo "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '${DB_NAME}'; \
+DROP DATABASE ${DB_NAME};" | psql "${DB_ROOT_URL}" 2>&1)
+
+################################################################
+# Locate the dump file in the cache or from AWS S3
+################################################################
+printf '%b\n' "\n> Searching for a dump file in the local cache..."
+
+if [ -n "$DUMP_OBJECT" ]; then
+    OBJECT=${DUMP_OBJECT}
+    DUMP_FILE=$(echo "${DUMP_OBJECT}" | sed 's/.*\///')
 else
-  if [ -n "${DUMP_OBJECT_DATE}" ]; then
-    dateFilter=${DUMP_OBJECT_DATE}
-  else
-    dateFilter=$(date +"%Y-%m-%dT%H:%M")
-  fi
-  # broaden filter until a match is found that is also less than dateFilter
-  filter=$dateFilter
-  while true; do
-    echo "postgres restore from s3 - using filter $filter"
-    if [ -f "/cache/$filter.dump" ]; then
-      # file exists in the cache, stop looking remotely
-      object=$filter
-      dumpFile=$filter.dump
-      break;
+    if [ -n "$DUMP_OBJECT_DATE" ]; then
+        FILTER=${DUMP_OBJECT_DATE}
+    else
+        FILTER=$(date +"%Y-%m-%dT%H:%M")
     fi
-    dumpFile=$(aws --region ${AWS_REGION} s3 ls s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}${filter} | sed "s/.* //" | grep '^[0-9:T\-]\{16\}\.dump$' | sort | tail -n 1)
-    if [ -n "$dumpFile" ]; then
-      object=${DUMP_OBJECT_PREFIX}$dumpFile
-      # found an object, success
-      break;
-    fi
-    if [ -z "$filter" ]; then
-      # got to an empty filter and still nothing found
-      object=""
-      break;
-    fi
-    filter="${filter%?}"
-  done
+
+    # Broaden filter until a match is found that is also less than FILTER
+    while true; do
+        printf '%b\n' "    Trying filter: ${FILTER}"
+        
+        # File exists in the cache, stop looking remotely
+        if [ -f "/cache/$FILTER.dump" ]; then
+            OBJECT=${FILTER}
+            DUMP_FILE=${FILTER}.dump
+            break;
+        fi
+
+        DUMP_FILE=$(aws --region "${AWS_REGION}" s3 ls "s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}${FILTER}" | sed "s/.* //" | grep '^[0-9:T\-]\{16\}\.dump$' | sort | tail -n 1)
+
+        # Found an object, success
+        if [ -n "${DUMP_FILE}" ]; then
+            OBJECT=${DUMP_OBJECT_PREFIX}${DUMP_FILE}
+            break;
+        fi
+
+        # Got to an empty filter and still nothing found
+        if [ -z "$FILTER" ]; then
+            OBJECT=""
+            break;
+        fi
+        
+        FILTER="${FILTER%?}"
+    done
 fi
-if [ -z "$object" ]; then
-  echo "postgres restore from s3 - dump file not found on s3"
-  exit 1
+
+if [ -z "$OBJECT" ]; then
+    printf '%b\n' "> Dump file not found in AWS S3 bucket"
+    exit 1
 fi
-if [ -f "/cache/$dumpFile" ]; then
-  echo "postgres restore from s3 - using cached $dumpFile"
+
+if [ -f "/cache/${DUMP_FILE}" ]; then
+    printf '%b\n' "    Using cached dump: \"${DUMP_FILE}\""
 else
-  echo "postgres restore from s3 - downloading dump from s3 - $object"
-  aws --region ${AWS_REGION} s3 cp s3://${AWS_BUCKET}/$object /cache/$dumpFile
+    printf '%b\n' "    Not found: Attempting to download the dump from an AWS S3 bucket"
+
+    # Download the dump
+    printf '%b\n' "\n> Downloading the latest dump from: \"s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}\""
+    aws --region "${AWS_REGION}" s3 cp "s3://${AWS_BUCKET}/${OBJECT}" "/cache/${DUMP_FILE}" || exit 1
 fi
-echo "postgres restore from s3 - dropping old database"
-dbName=$(echo $DATABASE_URL | sed "s|.*/\([^/]*\)\$|\\1|")
-dbRootUrl=$(echo $DATABASE_URL | sed "s|/[^/]*\$|/template1|")
-dropResult=$(echo "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '$dbName'; \
-  DROP DATABASE $dbName;" | psql $dbRootUrl 2>&1)
-if echo $dropResult | grep "other session using the database" -> /dev/null; then
-  echo "RESTORE FAILED - another database session is preventing drop of database $dbName"
-  exit 1
+
+################################################################
+# Drop the target database
+################################################################
+printf '%b\n' '\n> Dropping the target database...'
+printf '%b\n' "    DROP DATABASE ${DB_NAME};"
+
+if echo "${DROP_RESULT}" | grep "other session using the database" >/dev/null 2>&1; then
+    echo "RESTORE FAILED - another database session is preventing drop of database ${DB_NAME}"
+    exit 1
 fi
-createResult=$(echo "CREATE DATABASE $dbName;" | psql $dbRootUrl 2>&1)
-echo "postgres restore from s3 - filling target database with dump"
+
+################################################################
+# Restore the target database
+################################################################
+printf '%b\n' '\n> Restoring the target database...'
+printf '%b\n' "    CREATE DATABASE ${DB_NAME};\n    REVOKE connect ON DATABASE ${DB_NAME} FROM PUBLIC;\n    ALTER DATABASE ${DB_NAME} OWNER TO ${DB_NAME};"
+
+printf '%s' \
+"CREATE DATABASE ${DB_NAME}; REVOKE connect ON DATABASE ${DB_NAME} FROM PUBLIC; ALTER DATABASE ${DB_NAME} OWNER TO ${DB_NAME};" | \
+psql "${DB_ROOT_URL}" >/dev/null 2>&1
+
+printf '%b\n' "\n> Rebuilding the target database..."
+
 if [ -n "$PRE_RESTORE_PSQL" ]; then
-  echo "postgres restore from s3 - executing pre restore psql"
-  printf %s "$PRE_RESTORE_PSQL" | psql $DATABASE_URL
+    printf '%b\n' "> Executing pre-restore psql"
+    printf '%b\n' "${PRE_RESTORE_PSQL}" | psql "${DATABASE_URL}"
 fi
+
 if [ -n "$SCHEMA" ]; then
-  echo "postgres restore from s3 - schema - $SCHEMA"
-  pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --schema $SCHEMA --no-owner -d $DATABASE_URL /cache/$dumpFile
+    printf '%s' "    pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --schema $SCHEMA --no-owner -d <DATABASE_URL> /cache/${DUMP_FILE}"
+    pg_restore --jobs "$(grep -c ^processor /proc/cpuinfo)" --schema "$SCHEMA" --no-owner -d "${DATABASE_URL}" "/cache/${DUMP_FILE}"
 else
-  pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --no-owner -d $DATABASE_URL /cache/$dumpFile
+    printf '%s' "    pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --no-owner -d <DATABASE_URL> /cache/${DUMP_FILE}"
+    pg_restore --jobs "$(grep -c ^processor /proc/cpuinfo)" --no-owner -d "${DATABASE_URL}" "/cache/${DUMP_FILE}"
 fi
+
 if [ -n "$POST_RESTORE_PSQL" ]; then
-  echo "postgres restore from s3 - executing post restore psql"
-  printf %s "$POST_RESTORE_PSQL" | psql $DATABASE_URL
+    printf '%b\n' "> Executing post-restore psql"
+    printf '%s' "${POST_RESTORE_PSQL}" | psql "${DATABASE_URL}"
 fi
-echo "postgres restore from s3 - complete - $object"
+
+echo ""
+echo "COMPLETE: ${OBJECT}"
