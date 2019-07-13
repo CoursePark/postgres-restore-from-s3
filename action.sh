@@ -4,13 +4,13 @@
 # Variable definitions
 ################################################################
 # shellcheck disable=SC2001
-DB_NAME=$(echo "${DATABASE_URL}" | sed "s|.*/\([^/]*\)\$|\\1|")
+db_name=$(echo "${DATABASE_URL}" | sed "s|.*/\([^/]*\)\$|\\1|")
 
 # shellcheck disable=SC2001
-DB_ROOT_URL=$(echo "${DATABASE_URL}" | sed "s|/[^/]*\$|/template1|")
+db_root_url=$(echo "${DATABASE_URL}" | sed "s|/[^/]*\$|/template1|")
 
-DROP_RESULT=$(echo "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '${DB_NAME}'; \
-DROP DATABASE ${DB_NAME};" | psql "${DB_ROOT_URL}" 2>&1)
+drop_result=$(echo "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '${db_name}'; \
+DROP DATABASE ${db_name};" | psql "${db_root_url}" 2>&1)
 
 ################################################################
 # Locate the dump file in the cache or from AWS S3
@@ -18,67 +18,67 @@ DROP DATABASE ${DB_NAME};" | psql "${DB_ROOT_URL}" 2>&1)
 printf '%b\n' "\n> Searching for a dump file in the local cache..."
 
 if [ -n "$DUMP_OBJECT" ]; then
-    OBJECT=${DUMP_OBJECT}
-    DUMP_FILE=$(echo "${DUMP_OBJECT}" | sed 's/.*\///')
+    object=${DUMP_OBJECT}
+    dump_file=$(echo "${DUMP_OBJECT}" | sed 's/.*\///')
 else
     if [ -n "$DUMP_OBJECT_DATE" ]; then
-        FILTER=${DUMP_OBJECT_DATE}
+        filter=${DUMP_OBJECT_DATE}
     else
-        FILTER=$(date +"%Y-%m-%dT%H:%M")
+        filter=$(date +"%Y-%m-%dT%H:%M")
     fi
 
-    # Broaden filter until a match is found that is also less than FILTER
+    # Broaden filter until a match is found that is also less than filter
     while true; do
-        printf '%b\n' "    Trying filter: ${FILTER}"
+        printf '%b\n' "    Trying filter: ${filter}"
         
         # File exists in the cache, stop looking remotely
-        if [ -f "/cache/$FILTER.dump" ]; then
-            OBJECT=${FILTER}
-            DUMP_FILE=${FILTER}.dump
+        if [ -f "/cache/$filter.dump" ]; then
+            object=${filter}
+            dump_file=${filter}.dump
             break;
         fi
 
-        DUMP_FILE=$(aws --region "${AWS_REGION}" s3 ls "s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}${FILTER}" | sed "s/.* //" | grep '^[0-9:T\-]\{16\}\.dump$' | sort | tail -n 1)
+        dump_file=$(aws --region "${AWS_REGION}" s3 ls "s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}${filter}" | sed "s/.* //" | grep '^[0-9:T\-]\{16\}\.dump$' | sort | tail -n 1)
 
         # Found an object, success
-        if [ -n "${DUMP_FILE}" ]; then
-            OBJECT=${DUMP_OBJECT_PREFIX}${DUMP_FILE}
+        if [ -n "${dump_file}" ]; then
+            object=${DUMP_OBJECT_PREFIX}${dump_file}
             break;
         fi
 
         # Got to an empty filter and still nothing found
-        if [ -z "$FILTER" ]; then
-            OBJECT=""
+        if [ -z "$filter" ]; then
+            object=""
             break;
         fi
         
-        FILTER="${FILTER%?}"
+        filter="${filter%?}"
     done
 fi
 
-if [ -z "$OBJECT" ]; then
+if [ -z "$object" ]; then
     printf '%b\n' "> Dump file not found in AWS S3 bucket"
     exit 1
 fi
 
-if [ -f "/cache/${DUMP_FILE}" ]; then
-    printf '%b\n' "    Using cached dump: \"${DUMP_FILE}\""
+if [ -f "/cache/${dump_file}" ]; then
+    printf '%b\n' "    Using cached dump: \"${dump_file}\""
 else
     printf '%b\n' "    Not found: Attempting to download the dump from an AWS S3 bucket"
 
     # Download the dump
     printf '%b\n' "\n> Downloading the latest dump from: \"s3://${AWS_BUCKET}/${DUMP_OBJECT_PREFIX}\""
-    aws --region "${AWS_REGION}" s3 cp "s3://${AWS_BUCKET}/${OBJECT}" "/cache/${DUMP_FILE}" || exit 1
+    aws --region "${AWS_REGION}" s3 cp "s3://${AWS_BUCKET}/${object}" "/cache/${dump_file}" || exit 1
 fi
 
 ################################################################
 # Drop the target database
 ################################################################
 printf '%b\n' '\n> Dropping the target database...'
-printf '%b\n' "    DROP DATABASE ${DB_NAME};"
+printf '%b\n' "    DROP DATABASE ${db_name};"
 
-if echo "${DROP_RESULT}" | grep "other session using the database" >/dev/null 2>&1; then
-    echo "RESTORE FAILED - another database session is preventing drop of database ${DB_NAME}"
+if echo "${drop_result}" | grep "other session using the database" >/dev/null 2>&1; then
+    echo "RESTORE FAILED - another database session is preventing drop of database ${db_name}"
     exit 1
 fi
 
@@ -86,11 +86,11 @@ fi
 # Restore the target database
 ################################################################
 printf '%b\n' '\n> Restoring the target database...'
-printf '%b\n' "    CREATE DATABASE ${DB_NAME};\n    REVOKE connect ON DATABASE ${DB_NAME} FROM PUBLIC;\n    ALTER DATABASE ${DB_NAME} OWNER TO ${DB_NAME};"
+printf '%b\n' "    CREATE DATABASE ${db_name};\n    REVOKE connect ON DATABASE ${db_name} FROM PUBLIC;\n    ALTER DATABASE ${db_name} OWNER TO ${db_name};"
 
 printf '%s' \
-"CREATE DATABASE ${DB_NAME}; REVOKE connect ON DATABASE ${DB_NAME} FROM PUBLIC; ALTER DATABASE ${DB_NAME} OWNER TO ${DB_NAME};" | \
-psql "${DB_ROOT_URL}" >/dev/null 2>&1
+"CREATE DATABASE ${db_name}; REVOKE connect ON DATABASE ${db_name} FROM PUBLIC; ALTER DATABASE ${db_name} OWNER TO ${db_name};" | \
+psql "${db_root_url}" >/dev/null 2>&1
 
 printf '%b\n' "\n> Rebuilding the target database..."
 
@@ -100,11 +100,11 @@ if [ -n "$PRE_RESTORE_PSQL" ]; then
 fi
 
 if [ -n "$SCHEMA" ]; then
-    printf '%s' "    pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --schema $SCHEMA --no-owner -d <DATABASE_URL> /cache/${DUMP_FILE}"
-    pg_restore --jobs "$(grep -c ^processor /proc/cpuinfo)" --schema "$SCHEMA" --no-owner -d "${DATABASE_URL}" "/cache/${DUMP_FILE}"
+    printf '%s' "    pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --schema $SCHEMA --no-owner -d <DATABASE_URL> /cache/${dump_file}"
+    pg_restore --jobs "$(grep -c ^processor /proc/cpuinfo)" --schema "$SCHEMA" --no-owner -d "${DATABASE_URL}" "/cache/${dump_file}"
 else
-    printf '%s' "    pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --no-owner -d <DATABASE_URL> /cache/${DUMP_FILE}"
-    pg_restore --jobs "$(grep -c ^processor /proc/cpuinfo)" --no-owner -d "${DATABASE_URL}" "/cache/${DUMP_FILE}"
+    printf '%s' "    pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --no-owner -d <DATABASE_URL> /cache/${dump_file}"
+    pg_restore --jobs "$(grep -c ^processor /proc/cpuinfo)" --no-owner -d "${DATABASE_URL}" "/cache/${dump_file}"
 fi
 
 if [ -n "$POST_RESTORE_PSQL" ]; then
@@ -113,4 +113,4 @@ if [ -n "$POST_RESTORE_PSQL" ]; then
 fi
 
 echo ""
-echo "COMPLETE: ${OBJECT}"
+echo "COMPLETE: ${object}"

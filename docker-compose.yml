@@ -17,8 +17,8 @@ services:
       context: ./
       dockerfile: ./Dockerfile
       args:
-        PG_ALPINE_BRANCH: '3.6'
-        PG_VERSION: '9.6.10-r0'
+        pg_alpine_branch: '3.6'
+        pg_version: '9.6.10-r0'
     environment:
       AWS_BUCKET: <AWS_BUCKET_NAME>
       AWS_REGION: <AWS_REGION_NAME>
