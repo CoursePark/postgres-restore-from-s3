@@ -19,9 +19,9 @@ RUN apk --no-cache add dumb-init postgresql=${pg_version} python py-pip && \
 #--------------------------------------------------------------------------------
 # Set script permissions and create required directories
 #--------------------------------------------------------------------------------
-COPY aws-mfa.sh action.sh /
-RUN chmod +x action.sh && chmod +x aws-mfa.sh
-RUN mkdir -p /cache && mkdir -p /root/.aws
+COPY action.sh /
+RUN chmod +x action.sh
+RUN mkdir -p /cache
 
 #--------------------------------------------------------------------------------
 # Use the `dumb-init` init system (PID 1) for process handling
