@@ -10,7 +10,7 @@ latest    9.6.10-r0   3.6
 # shellcheck disable=SC2039
 IFS=$'\n'
 for build in $builds; do
-  TAG=$(echo "${build}" | cut -d ' ' -f 1 )
+  tag=$(echo "${build}" | cut -d ' ' -f 1 )
   pg_version=$(echo "${build}" | cut -d ' ' -f 2)
   pg_alpine_version=$(echo "${build}" | cut -d ' ' -f 3)
 
