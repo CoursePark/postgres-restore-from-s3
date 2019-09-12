@@ -8,11 +8,11 @@ ARG pg_version
 # Install dependencies
 #--------------------------------------------------------------------------------
 # "postgresql" is required for "pg_restore"
-# "python" is required for "aws-cli"
+# "py-pip" is required for "aws-cli"
 #--------------------------------------------------------------------------------
 RUN echo "http://dl-cdn.alpinelinux.org/alpine/v${pg_alpine_branch}/main" >> /etc/apk/repositories
 
-RUN apk --no-cache add dumb-init postgresql=${pg_version} python py-pip && \
+RUN apk --no-cache --update add dumb-init postgresql=${pg_version} py-pip && \
 	pip install awscli && \
 	apk --purge -v del py-pip
 

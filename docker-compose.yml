@@ -11,14 +11,14 @@ version: '3'
 
 services:
   postgres-restore-from-s3:
-    image: postgres-restore-from-s3:9.6.10
+    image: postgres-restore-from-s3:10.10
     network_mode: 'host'
     build:
       context: ./
       dockerfile: ./Dockerfile
       args:
-        pg_alpine_branch: '3.6'
-        pg_version: '9.6.10-r0'
+        pg_alpine_branch: '3.8'
+        pg_version: '10.10-r0'
     environment:
       AWS_BUCKET: <AWS_BUCKET_NAME>
       AWS_REGION: <AWS_REGION_NAME>
