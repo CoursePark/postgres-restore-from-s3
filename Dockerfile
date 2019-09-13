@@ -4,18 +4,32 @@ FROM alpine:${pg_alpine_branch}
 ARG pg_alpine_branch
 ARG pg_version
 
-# python for aws-cli, for s3 downloading
-RUN apk --no-cache add python py-pip && \
+#--------------------------------------------------------------------------------
+# Install dependencies
+#--------------------------------------------------------------------------------
+# "postgresql" is required for "pg_restore"
+# "python" is required for "aws-cli"
+#--------------------------------------------------------------------------------
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/v${pg_alpine_branch}/main" >> /etc/apk/repositories
+
+RUN apk --no-cache add dumb-init postgresql=${pg_version} python py-pip && \
 	pip install awscli && \
 	apk --purge -v del py-pip
 
-# postgresql for pg_restore
-RUN echo "http://dl-cdn.alpinelinux.org/alpine/v${pg_alpine_branch}/main" >> /etc/apk/repositories
-RUN apk --no-cache add postgresql=${pg_version}
-
+#--------------------------------------------------------------------------------
+# Set script permissions and create required directories
+#--------------------------------------------------------------------------------
 COPY action.sh /
 RUN chmod +x action.sh
-
 RUN mkdir -p /cache
 
-CMD echo "${CRON_MINUTE:-$(shuf -i 0-59 -n1)} ${CRON_HOUR:-*} * * * /action.sh" > /var/spool/cron/crontabs/root && crond -d 8 -f
+#--------------------------------------------------------------------------------
+# Use the `dumb-init` init system (PID 1) for process handling
+#--------------------------------------------------------------------------------
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+#--------------------------------------------------------------------------------
+# Configure and apply a cronjob
+#--------------------------------------------------------------------------------
+CMD echo "${CRON_MINUTE:-$(shuf -i 0-59 -n1)} ${CRON_HOUR:-*} * * * /action.sh" \
+> /var/spool/cron/crontabs/root && crond -d 8 -f
