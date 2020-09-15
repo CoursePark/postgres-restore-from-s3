@@ -6,7 +6,7 @@ Cron based download from s3 and database restore.
 
 `./build_push.sh [-p <FILE>, --package <FILE>]`
 
-`./build_push.sh -p 11.7-3.9`
+`./build_push.sh -p 12.4-3.12`
 
 ### Package files
 
@@ -15,9 +15,9 @@ Each package file represents a release for a particular `postgres` branch.
 The contents of the latest package file may look like this:
 
 ```
-ALPINE_VERSION='3.9'
-PG_BASE_VERSION='11'
-PG_FULL_VERSION='11.7'
+ALPINE_VERSION='3.12'
+PG_BASE_VERSION='12'
+PG_FULL_VERSION='12.4'
 PG_LATEST=true
 ```
 

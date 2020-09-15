@@ -17,8 +17,8 @@ services:
       context: ./
       dockerfile: ./Dockerfile
       args:
-        alpine_version: '3.9'
-        pg_full_version: '11.7-r0'
+        alpine_version: '3.12'
+        pg_full_version: '12.4-r0'
     environment:
       AWS_BUCKET: <AWS_BUCKET_NAME>
       AWS_REGION: <AWS_REGION_NAME>
