@@ -1,20 +1,16 @@
-ARG pg_alpine_branch
-FROM alpine:${pg_alpine_branch}
+ARG alpine_version
+FROM alpine:${alpine_version}
 
-ARG pg_alpine_branch
-ARG pg_version
+ARG alpine_version
+ARG pg_full_version
 
 #--------------------------------------------------------------------------------
 # Install dependencies
 #--------------------------------------------------------------------------------
 # "postgresql" is required for "pg_restore"
-# "python" is required for "aws-cli"
 #--------------------------------------------------------------------------------
-RUN echo "http://dl-cdn.alpinelinux.org/alpine/v${pg_alpine_branch}/main" >> /etc/apk/repositories
-
-RUN apk --no-cache add dumb-init postgresql=${pg_version} python py-pip && \
-	pip install awscli && \
-	apk --purge -v del py-pip
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/v${alpine_version}/main" >> /etc/apk/repositories
+RUN apk --no-cache --update add dumb-init postgresql=${pg_full_version} aws-cli
 
 #--------------------------------------------------------------------------------
 # Set script permissions and create required directories

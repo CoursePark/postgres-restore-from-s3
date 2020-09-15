@@ -100,10 +100,10 @@ if [ -n "$PRE_RESTORE_PSQL" ]; then
 fi
 
 if [ -n "$SCHEMA" ]; then
-    printf '%s' "    pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --schema $SCHEMA --no-owner -d <DATABASE_URL> /cache/${dump_file}"
+    printf '\n%s' "    pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --schema $SCHEMA --no-owner -d <DATABASE_URL> /cache/${dump_file}"
     pg_restore --jobs "$(grep -c ^processor /proc/cpuinfo)" --schema "$SCHEMA" --no-owner -d "${DATABASE_URL}" "/cache/${dump_file}"
 else
-    printf '%s' "    pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --no-owner -d <DATABASE_URL> /cache/${dump_file}"
+    printf '\n%s' "    pg_restore --jobs $(grep -c ^processor /proc/cpuinfo) --no-owner -d <DATABASE_URL> /cache/${dump_file}"
     pg_restore --jobs "$(grep -c ^processor /proc/cpuinfo)" --no-owner -d "${DATABASE_URL}" "/cache/${dump_file}"
 fi
 
